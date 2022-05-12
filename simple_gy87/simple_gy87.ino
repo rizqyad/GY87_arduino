@@ -49,12 +49,12 @@ void loop() {
   
   // Accelerometers sensitivity:
   // -/+2g = 16384  LSB/g
-  float xGf = ax / 16384;
-  float yGf = ay / 16384;
-  float zGf = az / 16384;
-
+  float xGf = (float)ax / (float)16384;
+  float yGf = (float)ay / (float)16384;
+  float zGf = (float)az / (float)16384;
+  
   // display tab-separated G-forces values
-  Serial.print("Acceleration:\t");
+  Serial.print("Acc:\t");
   Serial.print(xGf); Serial.print("\t");
   Serial.print(yGf); Serial.print("\t");
   Serial.println(zGf);
@@ -62,18 +62,17 @@ void loop() {
   // Convert accelerations to angle
   float roll = 180 * atan(xGf / sqrt((yGf * yGf) + (zGf * zGf))) / M_PI;
   float pitch = 180 * atan(yGf / sqrt((xGf * xGf) + (zGf * zGf))) / M_PI;
-  float yaw = 180 * atan(sqrt((xGf * xGf) + (yGf * yGf)) / xGf) / M_PI;
+  //float yaw = 180 * atan(sqrt((xGf * xGf) + (yGf * yGf)) / zGf) / M_PI;
 
   // display tab-separated G-forces values
-  Serial.print("Angle:\t");
+  Serial.print("Ang:\t");
   Serial.print(roll); Serial.print("\t");
   Serial.print(pitch); Serial.print("\t");
-  Serial.println(yaw);
+//  Serial.println(yaw);
   
-  //  float heading = Compass.GetHeadingDegrees();
-  //  Serial.print("Heading: \t");
-  //  Serial.println( heading );
-  //
+  float heading = Compass.GetHeadingDegrees();
+  //Serial.print("Head: \t");
+  Serial.println( heading );
 
   // blink LED to indicate activity
   blinkState = !blinkState;
