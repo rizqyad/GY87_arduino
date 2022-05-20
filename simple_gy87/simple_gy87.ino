@@ -5,8 +5,11 @@
 MPU6050 accelgyro;
 HMC5883L_Simple Compass;
 
-int16_t ax, ay, az;
-int16_t gx, gy, gz;
+int16_t ax, ay, az; // accelerometer
+int16_t gx, gy, gz; //gyro
+// MPU6050 offsets
+int16_t ax_offset = 1121; int16_t ay_offset = -1342; int16_t az_offset = 1263;
+int16_t gx_offset = -6499; int16_t gy_offset = -19965; int16_t gz_offset = 5044;;
 
 #define LED_PIN 13
 bool blinkState = false;
@@ -17,8 +20,15 @@ void setup() {
 
   // initialize devices
   Serial.println("Initializing I2C devices...");
-  // initialize mpu6050
+  // initialize MPU6050
   accelgyro.initialize();
+  // set MPU6050 offsets
+  accelgyro.setXAccelOffset(ax_offset);
+  accelgyro.setYAccelOffset(ay_offset);
+  accelgyro.setZAccelOffset(az_offset);
+  accelgyro.setXGyroOffset(gx_offset);
+  accelgyro.setYGyroOffset(gy_offset);
+  accelgyro.setZGyroOffset(gz_offset);
   //Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
   accelgyro.setI2CBypassEnabled(true); // set bypass mode for gateway to hmc5883L
 
