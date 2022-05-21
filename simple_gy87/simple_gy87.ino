@@ -5,21 +5,35 @@
 MPU6050 accelgyro;
 HMC5883L_Simple Compass;
 
-int16_t ax, ay, az; // accelerometer
-int16_t gx, gy, gz; //gyro
+int16_t ax, ay, az; // accelerometer raw data
+int16_t gx, gy, gz; //gyro raw data
+double gyroXdeg = 0; double gyroYdeg = 0; double gyroZdeg = 0;
+
 // MPU6050 offsets
 int16_t ax_offset = 1121; int16_t ay_offset = -1342; int16_t az_offset = 1263;
 int16_t gx_offset = -6499; int16_t gy_offset = -19965; int16_t gz_offset = 5044;;
 
+unsigned long currentTime, pastTime, difTime;
+bool firstTime = true;
+
 #define LED_PIN 13
 bool blinkState = false;
+
+// For Debug purpose 
+bool showDebug = false;
+bool includeYaw = false;
+bool showRawMPU = false;
+bool showRawG = false;
+bool showAccAng = true;
+bool showGyrAng = false;
+bool showCompAng = false;
 
 void setup() {
   Serial.begin(9600);
   Wire.begin();
 
   // initialize devices
-  Serial.println("Initializing I2C devices...");
+  if(showDebug) Serial.println("Initializing I2C devices...");
   // initialize MPU6050
   accelgyro.initialize();
   // set MPU6050 offsets
@@ -44,18 +58,35 @@ void setup() {
 }
 
 void loop() {
-
+  // get timestamp
+  if(firstTime){ // if the first run, adjust to set the first pastTime
+    currentTime = millis() / 1000;
+    delay(50);
+    pastTime = currentTime;
+    firstTime = false;
+  }
+  currentTime = millis() / 1000;
+  difTime = currentTime - pastTime; //0.01;
+  pastTime = currentTime;
+  
   // read raw accel/gyro measurements from device
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
   // display tab-separated accel/gyro x/y/z values
-  Serial.print("a/g:\t");
-  Serial.print(ax); Serial.print("\t");
-  Serial.print(ay); Serial.print("\t");
-  Serial.print(az); Serial.print("\t");
-  Serial.print(gx); Serial.print("\t");
-  Serial.print(gy); Serial.print("\t");
-  Serial.println(gz);
+  if(showRawMPU){
+    Serial.print("a/g:\t");
+    Serial.print(ax); 
+    Serial.print("\t");
+    Serial.print(ay); 
+    Serial.print("\t");
+    Serial.print(az); 
+    Serial.print("\t");
+    Serial.print(gx); 
+    Serial.print("\t");
+    Serial.print(gy); 
+    Serial.print("\t");
+    Serial.println(gz);
+  }
   
   // Accelerometers sensitivity:
   // -/+2g = 16384  LSB/g
@@ -64,29 +95,56 @@ void loop() {
   float zGf = (float)az / (float)16384;
   
   // display tab-separated G-forces values
-  Serial.print("Acc:\t");
-  Serial.print(xGf); Serial.print("\t");
-  Serial.print(yGf); Serial.print("\t");
-  Serial.println(zGf);
-
+  if(showRawG){
+    Serial.print("Acc:\t");
+    Serial.print(xGf); Serial.print("\t");Serial.print(yGf); Serial.print("\t");Serial.println(zGf);
+  }
   // Convert accelerations to angle
   float roll = 180 * atan(xGf / sqrt((yGf * yGf) + (zGf * zGf))) / M_PI;
   float pitch = 180 * atan(yGf / sqrt((xGf * xGf) + (zGf * zGf))) / M_PI;
-  //float yaw = 180 * atan(sqrt((xGf * xGf) + (yGf * yGf)) / zGf) / M_PI;
+  float yaw = 180 * atan(sqrt((xGf * xGf) + (yGf * yGf)) / zGf) / M_PI;
 
-  // display tab-separated G-forces values
-  Serial.print("Ang:\t");
-  Serial.print(roll); Serial.print("\t");
-  Serial.print(pitch); Serial.print("\t");
-//  Serial.println(yaw);
+  // display Accel Angle
+  if(showAccAng){
+    Serial.print("Roll:");Serial.print(roll);
+    Serial.print("\tPitch:");Serial.print(pitch);
+    if(includeYaw){Serial.print("\tYaw:");Serial.print(yaw);}
+  }
+  
+  //Convert Gyro raw data to rotation rate
+  double gyroXrate = gx / 131.0; // Convert to deg/s
+  double gyroYrate = gy / 131.0; // Convert to deg/s
+  double gyroZrate = gz / 131.0; // Convert to deg/s
+  //Integrate Gyro rotation rate to degree 
+  gyroXdeg += (gyroXrate * difTime) + 0.438; // Convert to degree // compensate drift
+  gyroYdeg += (gyroYrate * difTime) + 0.005; // Convert to degree
+  if(includeYaw){gyroZdeg += gyroZrate * difTime;} // Convert to degree
+  
+  // display Gyro Angle
+  if(showGyrAng){
+    Serial.print("\tRollGyro:");Serial.print(gyroXdeg);
+    Serial.print("\tPitchGyro:");Serial.print(gyroYdeg);
+    if(includeYaw){Serial.print("\tYawGyro:");Serial.print(gyroZdeg);}
+  }
   
   float heading = Compass.GetHeadingDegrees();
-  //Serial.print("Head: \t");
-  Serial.println( heading );
+  // display Heading
+  if(showDebug) {Serial.print("Heading:"); Serial.println(heading);}
 
+  // Complementary Filter
+  float rollComp = 0.98 * (gyroXdeg) + 0.02 * roll;
+  float pitchComp = 0.98 * (gyroYdeg) + 0.02 * pitch;
+  if(includeYaw){float yawComp = 0.98 * (gyroZdeg) + 0.02 * yaw;}
+  
+  // display Gyro Angle
+  if(showCompAng){
+    Serial.print("\tRollComp:");Serial.print(rollComp);
+    Serial.print("\tPitchComp:");Serial.print(rollComp);
+    if(includeYaw){Serial.print("\tYawComp:");Serial.print(rollComp);}
+  }
+  Serial.print("\n");
   // blink LED to indicate activity
   blinkState = !blinkState;
   digitalWrite(LED_PIN, blinkState);
-
-  delay(500);
+  delay(50);
 }
